@@ -23,7 +23,7 @@ docker pull golang
 docker run -it --rm -v /Users/admin/go:/go --privileged docker.io/golang  bash
 ```
 
-# 3. Project Path of Test Files
+# 3. Project Path of Test Files Matters Coverage
 For example, my project organized as follow.
 ```
 main.go
@@ -60,4 +60,28 @@ We may get inaccurate coverage for this test. Because golang doesn't support cal
 How to solve this problem? There has two ideas for this dilemma. Write test file within the path containing related buissiness code file. You can find this phenomenon in many golang project. Also, this pattern is good for testing private methods in the same package. Another idea is recursively handle tests in all packages and manually calculate coverage with script. I have not looked in detail to this idea and just list references here.
 <br/>[Go多个pkg的单元测试覆盖率](https://singlecool.com/2017/06/11/golang-test/)
 <br/>[Get Accurate Code Coverage in Golang (Go) Across Multiple Packages](https://www.ory.sh/golang-go-code-coverage-accurate/)
+
+# 4. Run Test for Single Test File Reports "command-line-arguments [build failed]"
+Project organized as follow.
+```
+service/
+    service.go
+    service_test.go
+...
+```
+I ran go test with commond:
+```shell
+go test -gcflags=all=-l -count=1 service/service_test.go
+```
+But console echos:
+```shell
+service/service_test.go:xx:xx: undefined: fun
+FAIL    command-line-arguments [build failed]
+```
+This means compiler cannot find ```fun()``` in ```service.go```. But ```service_test.go``` and ```service.go``` are in same path and it should work.
+The reason for this failure is that go test will generate a virtual package "command-line-arguments" for the designated test file ```service_test.go``` and it makes ```service.go``` and ```service_test.go``` in different packages. The function ```fun()``` is private and therefore ```service_test.go``` in "command-line-arguments" pacakge cannot refer to it.
+How to solve this problem? Told compiler what are other source files. The commond is this.
+```shell
+go test -gcflags=all=-l -count=1 service/service_test.go service/service.go
+```
 
