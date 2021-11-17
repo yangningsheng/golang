@@ -85,3 +85,63 @@ How to solve this problem? Told compiler what are other source files. The common
 go test -gcflags=all=-l -count=1 service/service_test.go service/service.go
 ```
 
+# 5. Gomonkey in Concurrent Phenomenon
+Supporting I have a RPC method ```Get()``` and it will return a random int number in \[0, 10).
+```go
+func Get() int {
+   time.Sleep(time.Duration(rand.Intn(100)) * time.Microsecond) // random RPC delay
+   return rand.Intn(10);
+}
+```
+I will concurrently call this method to get data in ```MultiGet()```.
+```go
+func MultiGet(num int) []int {
+   result := make([]int, num)
+   var wg sync.WaitGroup
+   for i := 0; i < num; i ++ {
+      wg.Add(1)
+      go func(idx int) {
+         defer wg.Done()
+         result[idx] = Get()
+         fmt.Printf("%d done.\n", idx)
+      }(i)
+   }
+   wg.Wait()
+   fmt.Printf("%+v.\n", result)
+   return result
+}
+```
+Gomonkey allows developers to appoint output sequence for methods or functions. I want to make an unit test for ```MultiGet()``` without really calling ```Get()```. Therefore I mock output sequence for ```Get()``` as follow.
+```go
+func TestMultiGet(t *testing.T) {
+   input := 5
+   mockSeq := []gomonkey.OutputCell{
+      gomonkey.OutputCell{
+         Values: gomonkey.Params{1},
+      },
+      gomonkey.OutputCell{
+         Values: gomonkey.Params{2},
+      },
+      gomonkey.OutputCell{
+         Values: gomonkey.Params{3},
+      },
+      gomonkey.OutputCell{
+         Values: gomonkey.Params{4},
+      },
+      gomonkey.OutputCell{
+         Values: gomonkey.Params{5},
+      },
+   }
+   mockGet := gomonkey.ApplyFuncSeq(Get, mockSeq)
+   defer mockGet.Reset()
+   output := MultiGet(input)
+}
+```
+I expect output as ```[1 2 3 4 5]``` and actually it returns in random sequence.
+<br/>
+<img width="180" alt="截屏2021-11-17 11 01 27" src="https://user-images.githubusercontent.com/94346774/142126867-1318a693-b5b6-493f-9ee4-dd75afae2919.png">
+<img width="180" alt="截屏2021-11-17 11 04 37" src="https://user-images.githubusercontent.com/94346774/142127160-f46eb6f6-1f35-458e-a012-b77499d328cb.png">
+<br/>
+Although I appointed output sequence for ```Get()``` but concurrently calling ```Get()``` returns in random sequnece for unpredictable delay.
+
+
