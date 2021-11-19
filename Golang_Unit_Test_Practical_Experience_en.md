@@ -142,6 +142,45 @@ I expect output as ```[1 2 3 4 5]``` and actually it returns in random sequence.
 <img width="180" alt="截屏2021-11-17 11 01 27" src="https://user-images.githubusercontent.com/94346774/142126867-1318a693-b5b6-493f-9ee4-dd75afae2919.png">
 <img width="180" alt="截屏2021-11-17 11 04 37" src="https://user-images.githubusercontent.com/94346774/142127160-f46eb6f6-1f35-458e-a012-b77499d328cb.png">
 <br/>
-Although I appointed output sequence for ```Get()``` but concurrently calling ```Get()``` returns in random sequnece for unpredictable delay.
-
-
+Although I appointed output sequence for ```Get()``` but concurrently calling ```Get()``` returns in random sequnece for unpredictable delay. That's why the test ouptut unmatches expect ones.
+<br/>
+So is gomonkey not suitable for mock concurrent phenomenon? Of course not, suporting I will sort result after collecting data by ```Get()```, then whatever the sequence it returns, I'll get the same result after sort data.
+```go
+func MultiGet(num int) []int {
+   result := make([]int, num)
+   var wg sync.WaitGroup
+   for i := 0; i < num; i ++ {
+      wg.Add(1)
+      go func(idx int) {
+         defer wg.Done()
+         result[idx] = Get()
+         fmt.Printf("%d done.\n", idx)
+      }(i)
+   }
+   wg.Wait()
+   sort.Ints(result)
+   fmt.Printf("%+v.\n", result)
+   return result
+}
+```
+If we didn't care the sequence of data, we can build test with mock. On the contrary, mock is not suitable when . For example, we sort data with quick sort as follow. We concurrently sort sub array on both side of pivot and merge result respectively. In this situation, data in left part and right part cannot exchagne their site. Therefore, We cannot mock this function.
+```go
+func quickSort(arr []int, begin int, end int) {
+    //...
+    var wg sync.WaitGroup
+    var left, right []int
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        left = go quickSort(arr, begin, pivot - 1)
+    }
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        right = go quickSort(arr, pivot + 1, end)
+    }
+    wg.Wait()
+    clone(arr, left, begin, pivot)
+    clone(arr, right, pivot + 1, end)
+}
+```
